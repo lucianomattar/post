@@ -1,0 +1,69 @@
+import os
+import streamlit as st
+import asyncio
+from httpx_oauth.clients.google import GoogleOAuth2
+from dotenv import load_dotenv
+
+# Carrega variáveis de ambiente do arquivo '.env'
+load_dotenv('.env')
+
+# Definindo as credenciais de cliente do Google OAuth2
+CLIENT_ID = os.environ['CLIENT_ID']
+CLIENT_SECRET = os.environ['CLIENT_SECRET']
+REDIRECT_URI = os.environ['REDIRECT_URI']
+client = GoogleOAuth2(CLIENT_ID, CLIENT_SECRET)
+
+async def get_authorization_url(client, redirect_uri):
+    # Gera URL de autorização para autenticação do Google
+    authorization_url = await client.get_authorization_url(redirect_uri, scope=["profile", "email"])
+    authorization_url += "&prompt=select_account"
+    return authorization_url
+
+async def get_access_token(client, redirect_uri, code):
+    # Obtém o token de acesso a partir do código de autorização
+    token = await client.get_access_token(code, redirect_uri)
+    return token
+
+async def get_email(client, token):
+    # Obtém ID de usuário e e-mail do Google OAuth2
+    user_id, user_email = await client.get_id_email(token)
+    return user_id, user_email
+
+def get_login_str():
+    # Gera uma string HTML para o botão de login
+    authorization_url = asyncio.run(get_authorization_url(client, REDIRECT_URI))
+    return f'''
+    <div style="display: flex; justify-content: center; align-items: center; height: 100px;">
+        <a style="display: inline-block; padding: 10px; color: white; background-color: #286090; 
+        text-align: center; border-radius: 4px; margin-bottom: 20px; font-size: 25px;text-decoration: none;
+        " target="_self" href="{authorization_url}">
+            Please log in
+        </a>
+    </div>
+    '''
+
+def display_user():
+    try:
+        # Processa a resposta de autenticação e exibe informações do usuário
+        code = st.experimental_get_query_params()['code']
+        token = asyncio.run(get_access_token(client, REDIRECT_URI, code))
+        user_id, user_email = asyncio.run(get_email(client, token['access_token']))
+
+        # Verifica se o e-mail do usuário está na lista de e-mails permitidos
+        with open("emails.txt", "r") as file:
+            allowed_emails = set(line.strip() for line in file)
+        
+        if user_email not in allowed_emails:
+            st.markdown('<div style="text-align: center;">O usuário/email não tem permissão.</div>', unsafe_allow_html=True)
+            st.session_state['authenticated'] = False
+        else:
+            st.session_state['authenticated'] = True
+            st.session_state['email'] = user_email
+            st.rerun()
+
+    except KeyError as e:
+        # Trata a exceção se o parâmetro 'code' não estiver presente
+        st.session_state['authenticated'] = False
+    except Exception as e:
+        # Trata outras exceções genéricas
+        pass

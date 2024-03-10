@@ -1,0 +1,16 @@
+# Importação das bibliotecas necessárias
+import streamlit as st
+from pathlib import Path
+import base64
+from streamlit_extras.app_logo import add_logo
+
+def run():
+    # Define a função interna 'read_markdown_file' para ler arquivos Markdown
+    def read_markdown_file(markdown_file):
+        # Usa a classe 'Path' do módulo 'pathlib' para ler o conteúdo do arquivo Markdown
+        return Path(markdown_file).read_text()
+
+    # Lê o arquivo Markdown 'o_que_e_ona.md' e armazena o conteúdo na variável 'intro_markdown'
+    intro_markdown = read_markdown_file("o_que_e_ona.md")
+    # Exibe o conteúdo do arquivo Markdown na aplicação Streamlit
+    st.markdown(intro_markdown, unsafe_allow_html=True)
